@@ -1,0 +1,9 @@
+build
+evaluation/dist
+GoCa_evaluation.egg-info
+GoCa.egg-info/
+.pytest_cache
+__pycache__
+.vscode
+nbconvert
+GoCa
