@@ -2,15 +2,18 @@ from re import S
 import numpy as np
 import pandas as pd
 from scipy.spatial.transform import Rotation
+from scipy.spatial.distance import cdist
 from scipy.special import expit
 from scipy import optimize
 import networkx as nx
+import itertools
 from process_helper import parmap
 import matplotlib.pyplot as plt
+from typing import List, Tuple
 
 class Trajectory:
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._chains = np.array([])
         self._initial_conformation = np.array([])
         self._chain_indices = []
@@ -22,32 +25,50 @@ class Trajectory:
         self._contacts_inside_chains_distances = np.array([])
         self._contacts_between_chains_distances = np.array([])
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._chains)
 
-    def size(self, chainId=None):
-        start_index, stop_index = self._get_chain_start_stop_indices(chainId)
+    def size(self, chainId: int=None) -> int:
+        """ Get size of chain at index `chainId` """
+        start_index, stop_index = self.get_chain_start_stop_indices(chainId)
         return stop_index - start_index
 
-    def get_number_of_chains(self):
+    def get_number_of_chains(self) -> int:
+        """ Get the number of chains """
         return len(self._chain_indices)
 
-    def get_time_steps(self):
+    def get_trajectory(self, chainId: int=None) -> np.ndarray:
+        """ Get the trajectory of the chain at index `chainId` """
+        start_index, stop_index = self.get_chain_start_stop_indices(chainId)
+        return self._chains[:,start_index:stop_index]
+
+    def get_initial_conformation(self, chainId: int=None) -> np.ndarray:
+        start_index, stop_index = self.get_chain_start_stop_indices(chainId)
+        return self._initial_conformation[start_index:stop_index]
+
+    def get_time_steps(self) -> np.ndarray:
+        """ Get the timestamps in picoseconds corresponding to the frames in the trajectory """
         return self._time_steps
 
-    def get_residue_names(self):
-        return self._residue_names
+    def get_residue_names(self, chainId: int=None) -> List[str]:
+        """ Get the 3-letter names of all residues in chain with index `chainId` """
+        start_index, stop_index = self.get_chain_start_stop_indices(chainId)
+        return self._residue_names[start_index:stop_index]
 
-    def get_box_dimensions(self):
+    def get_box_dimensions(self) -> np.ndarray:
+        """ Get box dimensions in nanometers """
         return self._box_dimensions
 
-    def get_contacts_inside_chains(self):
+    def get_native_pairs_inside_chains(self) -> np.ndarray:
+        """ List of amino acid index pairs which are defined as native pairs within all chains """
         return self._contacts_inside_chains
 
-    def get_contacts_between_chains(self):
+    def get_native_pairs_between_chains(self) -> np.ndarray:
+        """ List of amino acid index pairs which are defined as native pairs between chains """
         return self._contacts_between_chains
 
-    def _get_chain_start_stop_indices(self, chainId):
+    def get_chain_start_stop_indices(self, chainId) -> Tuple[int, int]:
+        """ Get the amino acid start and end indices of the chain at index `chainId` within the entire structure """
         if chainId == None:
             return 0, self._chains.shape[1]
         start_index = self._chain_indices[chainId]
@@ -56,16 +77,17 @@ class Trajectory:
 
     def __getitem__(self, pos):
         if type(pos) is int:
-            start_index, stop_index = self._get_chain_start_stop_indices(pos)
+            start_index, stop_index = self.get_chain_start_stop_indices(pos)
             return self._chains[:, start_index:stop_index]
         elif type(pos) is tuple and len(pos) == 2:
-            start_index, stop_index = self._get_chain_start_stop_indices(pos[0])
+            start_index, stop_index = self.get_chain_start_stop_indices(pos[0])
             return self._chains[pos[1], start_index:stop_index]
         elif type(pos) is tuple and len(pos) == 3:
-            start_index, stop_index = self._get_chain_start_stop_indices(pos[0])
+            start_index, stop_index = self.get_chain_start_stop_indices(pos[0])
             return self._chains[pos[1], start_index:stop_index][pos[2]]
 
     def is_valid(self):
+        """ Check if the trajectory object is valid """
         if len(self._chains) == 0 or len(self._chain_indices) == 0 or len(self._residue_names) == 0:
             return False
         if len(self._time_steps) == 0 or len(self._box_dimensions) != 3:
@@ -90,9 +112,10 @@ class Trajectory:
             return slice(frame, frame + 1, 1)
         return slice(None)
 
-    def _get_single_fraction_of_native_contact(self, coordinates, native_contacts, cut_off, sigmoid_factor, pbc):
-        a1 = coordinates[native_contacts[:,0]]
-        a2 = coordinates[native_contacts[:,1]]
+    def _get_single_fraction_of_native_contact(self, coordinates: np.ndarray, native_pairs: np.ndarray, cut_off: float, sigmoid_factor: float, pbc: bool) -> int:
+        """ Calculates the fraction of native contacts for a single trajectory frame for a given list of native pairs """
+        a1 = coordinates[native_pairs[:,0]]
+        a2 = coordinates[native_pairs[:,1]]
         if pbc:
             delta = np.abs(a1 - a2)
             distances = np.linalg.norm(np.where(delta > 0.5 * self._box_dimensions, delta - self._box_dimensions, delta), axis=1)
@@ -103,31 +126,67 @@ class Trajectory:
         else:
             return np.mean(expit(sigmoid_factor*(cut_off-distances)))
     
-    def _get_fraction_of_native_contacts(self, coordinates, native_contacts, cut_off, sigmoid_factor, pbc):
+    def _get_fraction_of_native_contacts(self, coordinates: np.ndarray, native_pairs: np.ndarray, cut_off: float, sigmoid_factor: float, pbc: bool) -> np.ndarray:
+        """ Calculates the fraction of native contacts for multiple frames for a given list of native pairs in parallel """
         if coordinates.shape[0] == 1:
-            return self._get_single_fraction_of_native_contact(coordinates[0], native_contacts, cut_off, sigmoid_factor, pbc)
+            return self._get_single_fraction_of_native_contact(coordinates[0], native_pairs, cut_off, sigmoid_factor, pbc)
         else:
             result = []
             result = np.array(parmap(
-                lambda frame: self._get_single_fraction_of_native_contact(frame, native_contacts, cut_off, sigmoid_factor, pbc), coordinates))
+                lambda frame: self._get_single_fraction_of_native_contact(frame, native_pairs, cut_off, sigmoid_factor, pbc), coordinates))
             return np.array(result)
 
-    def get_fraction_of_native_contacts_inside(self, frame=None, chain_id=None, offset=0.15, sigmoid_factor=20, pbc=False):
+
+    """ Get the fraction of native contacts for all intramolecular native pairs
+
+    Keyword arguments:
+    frame -- If provided, the a subset of frames from the trajectory is used
+        int: single frame
+        Tuple[int, int]: range of frames from start-index to end-index
+        Tuple[int, int, int]: range of frames from start-index to end-index with stepsize
+    chain_id -- If provided, onle the chain at this index is included
+    offset -- [nm] This value is added to the native pair distance to calculate the FNC cutoff
+    sigmoid_factor -- If > 0, a sigmoidal cutoff is used instead of a hard cutoff
+    pbc -- Consider periodic boundaries by calculating closest-image distances instead of real distances
+    """
+    def get_fraction_of_native_contacts_inside(self, frame=None, chain_id=None, offset: float=0.15, sigmoid_factor: float=20, pbc: bool=False) -> np.ndarray:
         frame_selection = Trajectory.__frame_to_slice(frame)
-        chain_start, chain_stop = self._get_chain_start_stop_indices(chain_id)
+        chain_start, chain_stop = self.get_chain_start_stop_indices(chain_id)
         selector = (self._contacts_inside_chains >= chain_start).all(axis=1) & (self._contacts_inside_chains < chain_stop).all(axis=1)
         contacts = self._contacts_inside_chains[selector]
         cut_off = self._contacts_inside_chains_distances[selector] + offset
         return self._get_fraction_of_native_contacts(self._chains[frame_selection], contacts, cut_off, sigmoid_factor, pbc)
 
-    def get_fraction_of_native_contacts_between(self, frame=None, offset=0.15, sigmoid_factor=20, pbc=False):
+    """ Get the fraction of native contacts for all intermolecular native pairs
+
+    Keyword arguments:
+    frame -- If provided, the a subset of frames from the trajectory is used
+        int: single frame
+        Tuple[int, int]: range of frames from start-index to end-index
+        Tuple[int, int, int]: range of frames from start-index to end-index with stepsize
+    offset -- [nm] This value is added to the native pair distance to calculate the FNC cutoff
+    sigmoid_factor -- If > 0, a sigmoidal cutoff is used instead of a hard cutoff
+    pbc -- Consider periodic boundaries by calculating closest-image distances instead of real distances
+    """
+    def get_fraction_of_native_contacts_between(self, frame=None, offset: float=0.15, sigmoid_factor: float=20, pbc: bool=False) -> np.ndarray:
         frame_selection = Trajectory.__frame_to_slice(frame)
         digitized = np.digitize(self._contacts_between_chains, self._chain_indices) - 1
         contacts = self._contacts_between_chains[digitized[:,0] != digitized[:,1]]
         cut_off = self._contacts_between_chains_distances[digitized[:,0] != digitized[:,1]] + offset
         return self._get_fraction_of_native_contacts(self._chains[frame_selection], contacts, cut_off, sigmoid_factor, pbc)
 
-    def get_fraction_of_native_contacts_chain_pairs(self, frame=None, offset=0.15, sigmoid_factor=20, pbc=False):
+    """ Calculate the fraction of native contacts for all possible chain pairs
+
+    Keyword arguments:
+    frame -- If provided, the a subset of frames from the trajectory is used
+        int: single frame
+        Tuple[int, int]: range of frames from start-index to end-index
+        Tuple[int, int, int]: range of frames from start-index to end-index with stepsize
+    offset -- [nm] This value is added to the native pair distance to calculate the FNC cutoff
+    sigmoid_factor -- If > 0, a sigmoidal cutoff is used instead of a hard cutoff
+    pbc -- Consider periodic boundaries by calculating closest-image distances instead of real distances
+    """
+    def get_fraction_of_native_contacts_chain_pairs(self, frame=None, offset: float=0.15, sigmoid_factor: float=20, pbc: bool=False) -> Tuple[np.ndarray, np.ndarray]:
         frame_selection = Trajectory.__frame_to_slice(frame)
         digitized = np.digitize(self._contacts_between_chains, self._chain_indices) - 1
         groups = np.unique(digitized, axis=0)
@@ -138,7 +197,7 @@ class Trajectory:
             result.append(self._get_fraction_of_native_contacts(self._chains[frame_selection], contacts, cut_off, sigmoid_factor, pbc))
         return result, groups
 
-    def _get_chain_slices(self, overwrite=None):
+    def _get_chain_slices(self, overwrite: dict=None):
         indices = [*self._chain_indices, len(self._residue_names)]
         slices = [slice(indices[i], indices[i+1], 1) for i in range(len(self._chain_indices))]
         if overwrite is not None and type(overwrite) == dict:
@@ -146,7 +205,13 @@ class Trajectory:
                 slices[key] = slice(slices[key].start + value.start, slices[key].start + value.stop, value.step if value.step else 1)
         return slices
 
-    def get_chain_distance_map(self, pbc=False, overwrite_chain_slices=None):
+    """ Generate 2D distance matrices for distances between the geometrical centers of all chains
+
+    Keyword arguments:
+    pbc -- Consider periodic boundaries by calculating closest-image distances instead of real distances
+    overwrite_chain_slices -- set the amino acid selection slice (value) for chain at index (key)
+    """
+    def get_chain_distance_map(self, pbc: bool=False, overwrite_chain_slices: dict=None) -> Tuple[np.ndarray, np.ndarray]:
         slices = self._get_chain_slices(overwrite=overwrite_chain_slices)
         number_of_chains = self.get_number_of_chains()
         init = np.zeros((number_of_chains, number_of_chains))
@@ -163,7 +228,14 @@ class Trajectory:
                     traj[:,i,j] = traj[:,j,i] = np.linalg.norm(self._chains[:,slices[i]].mean(axis=1) - self._chains[:,slices[j]].mean(axis=1), axis=-1)
         return init, traj
 
-    def get_chain_graph_helper(self, rolling_window_size=40, overwrite_chain_slices=None, processes=None):
+    """ Calculates pairwise chain distances over the entire trajectory
+
+    Keyword arguments:
+    rolling_window_size -- apply a rolling window averaging with the given size over the chain distances
+    overwrite_chain_slices -- set the amino acid selection slice (value) for chain at index (key)
+    processes -- Number of processes for parallelized distance calculations
+    """
+    def get_chain_distances(self, rolling_window_size: int=40, overwrite_chain_slices: dict=None, processes: int=None) -> np.ndarray:
         number_of_chains = self.get_number_of_chains()
         slices = self._get_chain_slices(overwrite=overwrite_chain_slices)
         indices = np.array([(i, j) for i in range(number_of_chains) for j in range(i + 1, number_of_chains)])
@@ -179,8 +251,27 @@ class Trajectory:
         result = np.array(parmap(calculate_distances, indices, nprocs=processes))
         return result
 
-    def get_chain_graph(self, rolling_window_size=30, std_cut_off=0.3, distance_cutoff_factor=0.5, single_distance_cutoff=1.2,
-            fixed_distance_cutoff=None, overwrite_chain_slices=None, logging=True, show_distance_histogram=False, processes=None):
+    """ Calculate one graph representation for each frame in the trajectory
+    In the graph, each chain is represented by one node. Two nodes are connected if their chains are bound.
+    Whether two chains are bound is determined by their distance (in comparison to their native distance) and
+    the variations in their distance.
+
+    Keyword arguments:
+    rolling_window_size -- apply a rolling window averaging with the given size over the chain distances.
+        This reduces false positives of bound chains.
+    std_cut_off -- cutoff value for the standard deviation of the chain distance between two bound chains
+    distance_cutoff_factor -- a distance histogram is used to determine the native distance between chains.
+        Increase/decrease this factor to allow for larger/smaller distance cutoffs.
+    single_distance_cutoff -- If the histogram method fails (usually for small complexes), this factor is multiplied
+        with the average chain distance to determine the distance cutoff
+    fixed_distance_cutoff -- If specified, this value is used as a distance cutoff (instead of an automatic cutoff determination)
+    overwrite_chain_slices -- set the amino acid selection slice (value) for chain at index (key)
+    logging -- Print logging information
+    show_distance_histogram -- Visualize the distance histogram used for the determination of the native chain distances
+    processes -- Number of processes for parallelized chain contact calculations
+    """
+    def get_chain_graph(self, rolling_window_size: int=30, std_cut_off: float=0.3, distance_cutoff_factor: float=0.5, single_distance_cutoff: float=1.2,
+            fixed_distance_cutoff: float=None, overwrite_chain_slices: dict=None, logging: bool=True, show_distance_histogram: bool=False, processes: int=None) -> List[nx.Graph]:
         number_of_chains = self.get_number_of_chains()
         original_slices = self._get_chain_slices()
         slices = self._get_chain_slices(overwrite=overwrite_chain_slices)
@@ -233,6 +324,8 @@ class Trajectory:
                 distance_indices = np.where(distance_hist[0] > distance_hist[0].max() / 2)[0]
                 cutoff = (distance_hist[1][distance_indices[0]+1] * distance_cutoff_factor + (1-distance_cutoff_factor) * distance_hist[1][distance_indices[1]])
             else:
+                if logging:
+                    print('Histogram method for the determination of native pair distances failed. Using average chain pair distances...')
                 cutoff = np.array(distances[key]).mean() * single_distance_cutoff
             distances[key] = cutoff
         # Process trajectory
@@ -256,8 +349,18 @@ class Trajectory:
         graphs = parmap(generate_graph, contacts.T,  nprocs=processes)
         return graphs
 
-        
-    def get_chain_formations(self, graphs, threshold=100, filtering=0, logging=False):
+    """ Calculate a clustered representation of the complex assembly process from a list of graph representations
+    Only the number number and size of connected graph components (i.e. subassemblies) is used for clustering.
+    This results in a smaller number of assembly states than generated by the `get_chain_formations_detailed`
+    method. However, usually the smaller number of states is easier to interpret.
+
+    Keyword arguments:
+    graphs -- List of nx.Graph
+    threshold -- All assembly states which appear less than this number of frames is excluded
+    filtering -- Remove short appearances of assembly states via an moving average filtering with a window size of `filtering`
+    logging -- Print logging information
+    """
+    def get_chain_formations(self, graphs, threshold: int=100, filtering: int=0, logging: bool=False):
         if logging:
             print('Get graph properties')
         components = []
@@ -321,6 +424,17 @@ class Trajectory:
 
         return img, unique
 
+    """ Calculate a clustered representation of the complex assembly process from a list of graph representations
+    The number number and size of connected graph components (i.e. subassemblies) and the degree histogram of
+    the graph is used for clustering. This results in more assembly states than generated by the `get_chain_formations`
+    method.
+
+    Keyword arguments:
+    graphs -- List of nx.Graph
+    threshold -- All assembly states which appear less than this number of frames is excluded
+    filtering -- Remove short appearances of assembly states via an moving average filtering with a window size of `filtering`
+    logging -- Print logging information
+    """
     def get_chain_formations_detailed(self, graphs, threshold=100, filtering=0, logging=False):
         if logging:
             print('Get graph properties')
@@ -403,9 +517,73 @@ class Trajectory:
         unique_labels = ' '.join(unique_labels)
 
         return img, unique, unique_labels
-        
 
-def aligned_rmsd(coordinates1, coordinates2):
+
+    """ Calculate the chain permutation invariant RMSD between the initial conformation and the structure at frame id `frame`
+    The method tries different rotations of the structure to find the best chain permutation. However, this does not
+    guarantee that the optimal permutation is found, especially for incomplete assemblies.
+
+    Keyword arguments:
+    frame -- index of frame in trajectory to use for the calculation
+    angle_steps_per_axis -- number of steps per euler angle for the rotation trials (computational effort is n^3)
+    overwrite_chain_slices -- set the amino acid selection slice (value) for chain at index (key)
+    """
+    def permutation_invariant_self_rmsd(self, frame: int, angle_steps_per_axis: int=30, overwrite_chain_slices: dict=None):
+        slices = self._get_chain_slices(overwrite=overwrite_chain_slices)
+        number_of_chains = self.get_number_of_chains()
+        indentical_chains = np.ones((number_of_chains, number_of_chains), dtype=bool)
+        for i in range(number_of_chains):
+            for j in range(i+1, number_of_chains):
+                if self._residue_names[slices[i]] != self._residue_names[slices[j]]:
+                    indentical_chains[i,j] = indentical_chains[j,i] = False
+        init_coordinates = np.empty((number_of_chains, 3))
+        frame_coordinates = np.empty((number_of_chains, 3))
+        for i in range(number_of_chains):
+            init_coordinates[i] = self._initial_conformation[slices[i]].mean(axis=0)
+            frame_coordinates[i] = self._chains[frame, slices[i]].mean(axis=0)
+        init_center = init_coordinates.mean(axis=0)
+        frame_center = frame_coordinates.mean(axis=0)
+        init_coordinates_centered = init_coordinates - init_center
+        frame_coordinates_centered = frame_coordinates - frame_center
+        def coarse_min_rmsd(z_rot, y_rot, x_rot, degrees=True):
+            rotation = Rotation.from_euler('zyx', [z_rot, y_rot, x_rot], degrees=degrees)
+            rotated = rotation.apply(frame_coordinates_centered)
+            distances = cdist(init_coordinates_centered, rotated, 'sqeuclidean')
+            distances += (1 - indentical_chains) * distances.max()
+            indices = distances.argmin(axis=1)
+            """if z_rot + y_rot + x_rot == 0: # Debugging
+                print(distances)
+                print(indices)
+                print(distances[len(indices), indices])"""
+            distance_sum = distances[np.arange(len(indices)), indices].sum()
+            return distance_sum, indices
+        min_values = {}
+        angle_steps = np.linspace(0, 360, angle_steps_per_axis, endpoint=False)
+        for z,y,x in itertools.product(angle_steps, angle_steps, angle_steps):
+            distance_sum, indices = coarse_min_rmsd(z, y, x, degrees=True)
+            key = ' '.join(map(str,indices))
+            if key in min_values:
+                if distance_sum < min_values[key]:
+                    min_values[key] = distance_sum
+            else:
+                min_values[key] = distance_sum
+        min_info = sorted(list(min_values.items()), key=lambda e: e[1])
+        min_rmsd = 10e10
+        result_indices = []
+        for min_i in min_info[:10]:
+            min_indices = list(map(int, min_i[0].split()))
+            permutated_frame_coordinates = []
+            for i in min_indices:
+                permutated_frame_coordinates.append(self._chains[frame, slices[i]])
+            permutated_frame_coordinates = np.concatenate(permutated_frame_coordinates, axis=0)
+            rmsd = aligned_rmsd(self._initial_conformation, permutated_frame_coordinates)
+            if rmsd < min_rmsd:
+                min_rmsd = rmsd
+                result_indices = min_indices
+        return min_rmsd, result_indices
+        
+def aligned_rmsd(coordinates1: np.ndarray, coordinates2: np.ndarray) -> float:
+    """ Calculate the RMSD between two lists of coordinates after their translational and rotational alignment """
     center1 = coordinates1.mean(axis=0)
     center2 = coordinates2.mean(axis=0)
     centered1 = coordinates1 - center1
@@ -413,24 +591,8 @@ def aligned_rmsd(coordinates1, coordinates2):
     rot, rmsd = Rotation.align_vectors(centered1, centered2)
     return rmsd
 
-def get_fitted_unfolding_curve(temperatures, rmsd, p0=None, error=False, bounds=None, maxfev=1000, method=None):
-    if p0 is None:
-        p0 = [max(rmsd), 0.2, np.median(temperatures), min(rmsd)]
-    np.seterr(over='ignore')
-    def sigmoid(x, a, b, c, d):
-        return a / (1 + np.exp(-b*(x-c))) + d
-    if bounds is None:
-        params, cov = optimize.curve_fit(sigmoid, temperatures, rmsd, p0=p0, maxfev=maxfev, method=method)
-    else:
-        params, cov = optimize.curve_fit(sigmoid, temperatures, rmsd, p0=p0, bounds=bounds, maxfev=maxfev, method=method)
-    tpx = params[2]
-    np.seterr(over='warn')
-    if error:
-        return tpx, lambda x: sigmoid(x, *params), np.sqrt(cov[2,2])
-    else:
-        return tpx, lambda x: sigmoid(x, *params)
-
-def read_xvg_file(filename, dataframe=True):
+def read_xvg_file(filename: str, dataframe: bool=True):
+    """ Read xvg file as np.ndarray or pd.DataFrame """
     file = open(filename, 'r')
     lines = file.readlines()
     file.close()

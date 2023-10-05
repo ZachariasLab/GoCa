@@ -6,7 +6,8 @@ import multiprocessing as mp
 
 class GromacsTrajectory(Trajectory):
 
-    """ Trajectory object from Gromacs files
+    """ Generate a trajectory object from Gromacs files
+    
     Keyword arguments:
     trajectory_filename -- filename of the trajectory, e.g. in the .xtc file format
     coordinate_filename -- filename of the folded / initial structure, e.g. in the .gro file format
@@ -15,10 +16,11 @@ class GromacsTrajectory(Trajectory):
     def __init__(self, trajectory_filename, coordinate_filename, topology_filename):
         super().__init__()
         self._read_coordinates(coordinate_filename, trajectory_filename)
-        self._read_native_contacts(topology_filename)
+        self._read_native_pairs(topology_filename)
         self._initial_conformation = mdtraj.load(coordinate_filename).xyz[0]
     
     def _read_coordinates(self, coordinate_filename, trajectory_filename):
+        """ Read coordinate file """
         try:
             t = mdtraj.load(trajectory_filename, top=coordinate_filename)
             self._time_steps = t.time
@@ -41,7 +43,8 @@ class GromacsTrajectory(Trajectory):
         residue_indices = np.array([i.residue.resSeq for i in t.topology.atoms])
         self._chain_indices = np.where(residue_indices == 1)[0]
 
-    def _read_native_contacts(self, topology_filename):
+    def _read_native_pairs(self, topology_filename):
+        """ Extract native pairs from topology file """
         file = open(topology_filename, 'r')
         linestack = []
         status = 0
@@ -127,6 +130,7 @@ class GromacsTrajectory(Trajectory):
         file.close()
 
     def write_coordinates(self, filename, chainId = None, title='Coordinate file'):
+        """ Write trajectory of single chain to file """
         if not self.is_valid:
             raise Error('Trajectory is invalid and can not be written')
         file = open(filename, 'w')
@@ -157,6 +161,14 @@ class RMSD2D:
         for i, j in indices:
             arr[i, j] = arr[j, i] = aligned_rmsd(shared[3][i].xyz[0], shared[3][j].xyz[0])
 
+    """ Calculate a 2D matrix containing the RMSD from each trajectory frame with all other frames
+    
+    Keyword arguments:
+    trajectory_filename -- filename of the trajectory, e.g. in the .xtc file format
+    coordinate_filename -- filename of the folded / initial structure, e.g. in the .gro file format
+    step_size -- only include every nth trajectory frame
+    processes -- number of parallel processes to use foe the calculations
+    """
     @staticmethod
     def calculate(trajectory_filename, coordinate_filename, step_size=1, processes=10):
         trajectory = mdtraj.load(trajectory_filename, top=coordinate_filename)[::step_size]
