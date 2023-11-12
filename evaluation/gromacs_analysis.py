@@ -135,10 +135,11 @@ class GromacsTrajectory(Trajectory):
             raise Error('Trajectory is invalid and can not be written')
         file = open(filename, 'w')
         bead_count = 0
-        start_index, stop_index = self._get_chain_start_stop_indices(chainId)
+        start_index, stop_index = self.get_chain_start_stop_indices(chainId)
         bead_number = stop_index - start_index
+        dt = self._time_steps[1] - self._time_steps[0]
         for f in range(self._chains.shape[0]):
-            file.write('{} t= {:.4f} step= {}\n  {}\n'.format(title, i*dt, i, bead_number))
+            file.write('{} t= {:.4f} step= {}\n  {}\n'.format(title, f*dt, f, bead_number))
             for i in range(start_index, stop_index):
                 if i in self._chain_indices:
                     bead_count = 1

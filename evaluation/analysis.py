@@ -584,11 +584,14 @@ class Trajectory:
         
 def aligned_rmsd(coordinates1: np.ndarray, coordinates2: np.ndarray) -> float:
     """ Calculate the RMSD between two lists of coordinates after their translational and rotational alignment """
+    assert coordinates1.shape == coordinates2.shape, 'Both input arrays must have the same shape'
+    assert len(coordinates1.shape) == 2 and coordinates1.shape[-1] == 3, 'The input array size must be (N, 3)'
     center1 = coordinates1.mean(axis=0)
     center2 = coordinates2.mean(axis=0)
     centered1 = coordinates1 - center1
     centered2 = coordinates2 - center2
-    rot, rmsd = Rotation.align_vectors(centered1, centered2)
+    rot, rssd = Rotation.align_vectors(centered1, centered2)
+    rmsd = rssd / np.sqrt(len(coordinates1))
     return rmsd
 
 def read_xvg_file(filename: str, dataframe: bool=True):
