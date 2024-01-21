@@ -136,20 +136,19 @@ class Trajectory:
                 lambda frame: self._get_single_fraction_of_native_contact(frame, native_pairs, cut_off, sigmoid_factor, pbc), coordinates))
             return np.array(result)
 
-
-    """ Get the fraction of native contacts for all intramolecular native pairs
-
-    Keyword arguments:
-    frame -- If provided, the a subset of frames from the trajectory is used
-        int: single frame
-        Tuple[int, int]: range of frames from start-index to end-index
-        Tuple[int, int, int]: range of frames from start-index to end-index with stepsize
-    chain_id -- If provided, onle the chain at this index is included
-    offset -- [nm] This value is added to the native pair distance to calculate the FNC cutoff
-    sigmoid_factor -- If > 0, a sigmoidal cutoff is used instead of a hard cutoff
-    pbc -- Consider periodic boundaries by calculating closest-image distances instead of real distances
-    """
     def get_fraction_of_native_contacts_inside(self, frame=None, chain_id=None, offset: float=0.15, sigmoid_factor: float=20, pbc: bool=False) -> np.ndarray:
+        """ Get the fraction of native contacts for all intramolecular native pairs
+
+        Keyword arguments:
+        frame -- If provided, the a subset of frames from the trajectory is used
+            int: single frame
+            Tuple[int, int]: range of frames from start-index to end-index
+            Tuple[int, int, int]: range of frames from start-index to end-index with stepsize
+        chain_id -- If provided, onle the chain at this index is included
+        offset -- [nm] This value is added to the native pair distance to calculate the FNC cutoff
+        sigmoid_factor -- If > 0, a sigmoidal cutoff is used instead of a hard cutoff
+        pbc -- Consider periodic boundaries by calculating closest-image distances instead of real distances
+        """
         frame_selection = Trajectory.__frame_to_slice(frame)
         chain_start, chain_stop = self.get_chain_start_stop_indices(chain_id)
         selector = (self._contacts_inside_chains >= chain_start).all(axis=1) & (self._contacts_inside_chains < chain_stop).all(axis=1)
@@ -157,36 +156,36 @@ class Trajectory:
         cut_off = self._contacts_inside_chains_distances[selector] + offset
         return self._get_fraction_of_native_contacts(self._chains[frame_selection], contacts, cut_off, sigmoid_factor, pbc)
 
-    """ Get the fraction of native contacts for all intermolecular native pairs
-
-    Keyword arguments:
-    frame -- If provided, the a subset of frames from the trajectory is used
-        int: single frame
-        Tuple[int, int]: range of frames from start-index to end-index
-        Tuple[int, int, int]: range of frames from start-index to end-index with stepsize
-    offset -- [nm] This value is added to the native pair distance to calculate the FNC cutoff
-    sigmoid_factor -- If > 0, a sigmoidal cutoff is used instead of a hard cutoff
-    pbc -- Consider periodic boundaries by calculating closest-image distances instead of real distances
-    """
     def get_fraction_of_native_contacts_between(self, frame=None, offset: float=0.15, sigmoid_factor: float=20, pbc: bool=False) -> np.ndarray:
+        """ Get the fraction of native contacts for all intermolecular native pairs
+
+        Keyword arguments:
+        frame -- If provided, the a subset of frames from the trajectory is used
+            int: single frame
+            Tuple[int, int]: range of frames from start-index to end-index
+            Tuple[int, int, int]: range of frames from start-index to end-index with stepsize
+        offset -- [nm] This value is added to the native pair distance to calculate the FNC cutoff
+        sigmoid_factor -- If > 0, a sigmoidal cutoff is used instead of a hard cutoff
+        pbc -- Consider periodic boundaries by calculating closest-image distances instead of real distances
+        """
         frame_selection = Trajectory.__frame_to_slice(frame)
         digitized = np.digitize(self._contacts_between_chains, self._chain_indices) - 1
         contacts = self._contacts_between_chains[digitized[:,0] != digitized[:,1]]
         cut_off = self._contacts_between_chains_distances[digitized[:,0] != digitized[:,1]] + offset
         return self._get_fraction_of_native_contacts(self._chains[frame_selection], contacts, cut_off, sigmoid_factor, pbc)
 
-    """ Calculate the fraction of native contacts for all possible chain pairs
-
-    Keyword arguments:
-    frame -- If provided, the a subset of frames from the trajectory is used
-        int: single frame
-        Tuple[int, int]: range of frames from start-index to end-index
-        Tuple[int, int, int]: range of frames from start-index to end-index with stepsize
-    offset -- [nm] This value is added to the native pair distance to calculate the FNC cutoff
-    sigmoid_factor -- If > 0, a sigmoidal cutoff is used instead of a hard cutoff
-    pbc -- Consider periodic boundaries by calculating closest-image distances instead of real distances
-    """
     def get_fraction_of_native_contacts_chain_pairs(self, frame=None, offset: float=0.15, sigmoid_factor: float=20, pbc: bool=False) -> Tuple[np.ndarray, np.ndarray]:
+        """ Calculate the fraction of native contacts for all possible chain pairs
+
+        Keyword arguments:
+        frame -- If provided, the a subset of frames from the trajectory is used
+            int: single frame
+            Tuple[int, int]: range of frames from start-index to end-index
+            Tuple[int, int, int]: range of frames from start-index to end-index with stepsize
+        offset -- [nm] This value is added to the native pair distance to calculate the FNC cutoff
+        sigmoid_factor -- If > 0, a sigmoidal cutoff is used instead of a hard cutoff
+        pbc -- Consider periodic boundaries by calculating closest-image distances instead of real distances
+        """
         frame_selection = Trajectory.__frame_to_slice(frame)
         digitized = np.digitize(self._contacts_between_chains, self._chain_indices) - 1
         groups = np.unique(digitized, axis=0)
@@ -205,13 +204,13 @@ class Trajectory:
                 slices[key] = slice(slices[key].start + value.start, slices[key].start + value.stop, value.step if value.step else 1)
         return slices
 
-    """ Generate 2D distance matrices for distances between the geometrical centers of all chains
-
-    Keyword arguments:
-    pbc -- Consider periodic boundaries by calculating closest-image distances instead of real distances
-    overwrite_chain_slices -- set the amino acid selection slice (value) for chain at index (key)
-    """
     def get_chain_distance_map(self, pbc: bool=False, overwrite_chain_slices: dict=None) -> Tuple[np.ndarray, np.ndarray]:
+        """ Generate 2D distance matrices for distances between the geometrical centers of all chains
+
+        Keyword arguments:
+        pbc -- Consider periodic boundaries by calculating closest-image distances instead of real distances
+        overwrite_chain_slices -- set the amino acid selection slice (value) for chain at index (key)
+        """
         slices = self._get_chain_slices(overwrite=overwrite_chain_slices)
         number_of_chains = self.get_number_of_chains()
         init = np.zeros((number_of_chains, number_of_chains))
@@ -228,14 +227,14 @@ class Trajectory:
                     traj[:,i,j] = traj[:,j,i] = np.linalg.norm(self._chains[:,slices[i]].mean(axis=1) - self._chains[:,slices[j]].mean(axis=1), axis=-1)
         return init, traj
 
-    """ Calculates pairwise chain distances over the entire trajectory
-
-    Keyword arguments:
-    rolling_window_size -- apply a rolling window averaging with the given size over the chain distances
-    overwrite_chain_slices -- set the amino acid selection slice (value) for chain at index (key)
-    processes -- Number of processes for parallelized distance calculations
-    """
     def get_chain_distances(self, rolling_window_size: int=40, overwrite_chain_slices: dict=None, processes: int=None) -> np.ndarray:
+        """ Calculates pairwise chain distances over the entire trajectory
+
+        Keyword arguments:
+        rolling_window_size -- apply a rolling window averaging with the given size over the chain distances
+        overwrite_chain_slices -- set the amino acid selection slice (value) for chain at index (key)
+        processes -- Number of processes for parallelized distance calculations
+        """
         number_of_chains = self.get_number_of_chains()
         slices = self._get_chain_slices(overwrite=overwrite_chain_slices)
         indices = np.array([(i, j) for i in range(number_of_chains) for j in range(i + 1, number_of_chains)])
@@ -251,27 +250,27 @@ class Trajectory:
         result = np.array(parmap(calculate_distances, indices, nprocs=processes))
         return result
 
-    """ Calculate one graph representation for each frame in the trajectory
-    In the graph, each chain is represented by one node. Two nodes are connected if their chains are bound.
-    Whether two chains are bound is determined by their distance (in comparison to their native distance) and
-    the variations in their distance.
-
-    Keyword arguments:
-    rolling_window_size -- apply a rolling window averaging with the given size over the chain distances.
-        This reduces false positives of bound chains.
-    std_cut_off -- cutoff value for the standard deviation of the chain distance between two bound chains
-    distance_cutoff_factor -- a distance histogram is used to determine the native distance between chains.
-        Increase/decrease this factor to allow for larger/smaller distance cutoffs.
-    single_distance_cutoff -- If the histogram method fails (usually for small complexes), this factor is multiplied
-        with the average chain distance to determine the distance cutoff
-    fixed_distance_cutoff -- If specified, this value is used as a distance cutoff (instead of an automatic cutoff determination)
-    overwrite_chain_slices -- set the amino acid selection slice (value) for chain at index (key)
-    logging -- Print logging information
-    show_distance_histogram -- Visualize the distance histogram used for the determination of the native chain distances
-    processes -- Number of processes for parallelized chain contact calculations
-    """
     def get_chain_graph(self, rolling_window_size: int=30, std_cut_off: float=0.3, distance_cutoff_factor: float=0.5, single_distance_cutoff: float=1.2,
             fixed_distance_cutoff: float=None, overwrite_chain_slices: dict=None, logging: bool=True, show_distance_histogram: bool=False, processes: int=None) -> List[nx.Graph]:
+        """ Calculate one graph representation for each frame in the trajectory
+        In the graph, each chain is represented by one node. Two nodes are connected if their chains are bound.
+        Whether two chains are bound is determined by their distance (in comparison to their native distance) and
+        the variations in their distance.
+
+        Keyword arguments:
+        rolling_window_size -- apply a rolling window averaging with the given size over the chain distances.
+            This reduces false positives of bound chains.
+        std_cut_off -- cutoff value for the standard deviation of the chain distance between two bound chains
+        distance_cutoff_factor -- a distance histogram is used to determine the native distance between chains.
+            Increase/decrease this factor to allow for larger/smaller distance cutoffs.
+        single_distance_cutoff -- If the histogram method fails (usually for small complexes), this factor is multiplied
+            with the average chain distance to determine the distance cutoff
+        fixed_distance_cutoff -- If specified, this value is used as a distance cutoff (instead of an automatic cutoff determination)
+        overwrite_chain_slices -- set the amino acid selection slice (value) for chain at index (key)
+        logging -- Print logging information
+        show_distance_histogram -- Visualize the distance histogram used for the determination of the native chain distances
+        processes -- Number of processes for parallelized chain contact calculations
+        """
         number_of_chains = self.get_number_of_chains()
         original_slices = self._get_chain_slices()
         slices = self._get_chain_slices(overwrite=overwrite_chain_slices)
@@ -349,18 +348,18 @@ class Trajectory:
         graphs = parmap(generate_graph, contacts.T,  nprocs=processes)
         return graphs
 
-    """ Calculate a clustered representation of the complex assembly process from a list of graph representations
-    Only the number number and size of connected graph components (i.e. subassemblies) is used for clustering.
-    This results in a smaller number of assembly states than generated by the `get_chain_formations_detailed`
-    method. However, usually the smaller number of states is easier to interpret.
-
-    Keyword arguments:
-    graphs -- List of nx.Graph
-    threshold -- All assembly states which appear less than this number of frames is excluded
-    filtering -- Remove short appearances of assembly states via an moving average filtering with a window size of `filtering`
-    logging -- Print logging information
-    """
     def get_chain_formations(self, graphs, threshold: int=100, filtering: int=0, logging: bool=False):
+        """ Calculate a clustered representation of the complex assembly process from a list of graph representations
+        Only the number number and size of connected graph components (i.e. subassemblies) is used for clustering.
+        This results in a smaller number of assembly states than generated by the `get_chain_formations_detailed`
+        method. However, usually the smaller number of states is easier to interpret.
+
+        Keyword arguments:
+        graphs -- List of nx.Graph
+        threshold -- All assembly states which appear less than this number of frames is excluded
+        filtering -- Remove short appearances of assembly states via an moving average filtering with a window size of `filtering`
+        logging -- Print logging information
+        """
         if logging:
             print('Get graph properties')
         components = []
@@ -424,18 +423,18 @@ class Trajectory:
 
         return img, unique
 
-    """ Calculate a clustered representation of the complex assembly process from a list of graph representations
-    The number number and size of connected graph components (i.e. subassemblies) and the degree histogram of
-    the graph is used for clustering. This results in more assembly states than generated by the `get_chain_formations`
-    method.
-
-    Keyword arguments:
-    graphs -- List of nx.Graph
-    threshold -- All assembly states which appear less than this number of frames is excluded
-    filtering -- Remove short appearances of assembly states via an moving average filtering with a window size of `filtering`
-    logging -- Print logging information
-    """
     def get_chain_formations_detailed(self, graphs, threshold=100, filtering=0, logging=False):
+        """ Calculate a clustered representation of the complex assembly process from a list of graph representations
+        The number number and size of connected graph components (i.e. subassemblies) and the degree histogram of
+        the graph is used for clustering. This results in more assembly states than generated by the `get_chain_formations`
+        method.
+
+        Keyword arguments:
+        graphs -- List of nx.Graph
+        threshold -- All assembly states which appear less than this number of frames is excluded
+        filtering -- Remove short appearances of assembly states via an moving average filtering with a window size of `filtering`
+        logging -- Print logging information
+        """
         if logging:
             print('Get graph properties')
         degrees = []
@@ -518,17 +517,16 @@ class Trajectory:
 
         return img, unique, unique_labels
 
-
-    """ Calculate the chain permutation invariant RMSD between the initial conformation and the structure at frame id `frame`
-    The method tries different rotations of the structure to find the best chain permutation. However, this does not
-    guarantee that the optimal permutation is found, especially for incomplete assemblies.
-
-    Keyword arguments:
-    frame -- index of frame in trajectory to use for the calculation
-    angle_steps_per_axis -- number of steps per euler angle for the rotation trials (computational effort is n^3)
-    overwrite_chain_slices -- set the amino acid selection slice (value) for chain at index (key)
-    """
     def permutation_invariant_self_rmsd(self, frame: int, angle_steps_per_axis: int=30, overwrite_chain_slices: dict=None):
+        """ Calculate the chain permutation invariant RMSD between the initial conformation and the structure at frame id `frame`
+        The method tries different rotations of the structure to find the best chain permutation. However, this does not
+        guarantee that the optimal permutation is found, especially for incomplete assemblies.
+
+        Keyword arguments:
+        frame -- index of frame in trajectory to use for the calculation
+        angle_steps_per_axis -- number of steps per euler angle for the rotation trials (computational effort is n^3)
+        overwrite_chain_slices -- set the amino acid selection slice (value) for chain at index (key)
+        """
         slices = self._get_chain_slices(overwrite=overwrite_chain_slices)
         number_of_chains = self.get_number_of_chains()
         indentical_chains = np.ones((number_of_chains, number_of_chains), dtype=bool)
