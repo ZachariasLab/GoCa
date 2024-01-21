@@ -1,10 +1,12 @@
 #!/bin/bash
 woh_file=$1
 wh_file=$2
+log_file=$3
 
 if (( ${#woh_file} <= 0)); then echo "Error: Please provide an input pdb file."; exit 0; fi
 if [ ! -f $woh_file ]; then echo "Error: Input file \"$1\" does not exist."; exit 0; fi
 if (( ${#wh_file} <= 0)); then echo "Error: Please provide an output filename."; exit 0; fi
+if (( ${#log_file} <= 0)); then log_file="/dev/null"; fi
 if ! command -v tleap &> /dev/null; then echo "Error: The Amber program \"tleap\" is required for this script."; exit 0; fi
 if ! command -v python &> /dev/null; then echo "Error: Python is required for this script."; exit 0; fi
 
@@ -13,7 +15,7 @@ while [ -f $woh_file_temp ]; do woh_file_temp="$woh_file_temp.temp"; done
 
 sed '/HOH/d' $woh_file > $woh_file_temp
 
-tleap -f > /dev/null - <<_EOF
+tleap -f > $log_file - <<_EOF
 source leaprc.protein.ff14SB
 mol = loadpdb $woh_file_temp
 savepdb mol $wh_file

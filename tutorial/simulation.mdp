@@ -1,0 +1,40 @@
+dt                       = 0.004             ; Timestep in ps
+nsteps                   = 3000000           ; Number of simulation steps
+
+; OUTPUT CONTROL OPTIONS
+nstenergy                = 100
+nstxout-compressed       = 100               ; Output frequency and precision for .xtc file
+energygrps               = System            ; No special energy groups
+
+; NEIGHBORSEARCHING PARAMETERS
+cutoff-scheme            = Verlet            ; Cut-off scheme
+nstlist                  = 20
+pbc                      = xyz               ; Periodic boundary conditions
+periodic-molecules       = no
+verlet-buffer-tolerance  = 0.005
+rlist                    = 0.85
+
+; OPTIONS FOR ELECTROSTATICS AND VDW
+coulombtype              = cut-off           ; Method for doing (non-existent) electrostatics
+coulomb-modifier         = Potential-shift-Verlet
+rcoulomb                 = 4.0
+vdw-type                 = Cut-off           ; Method for doing Van der Waals
+vdw-modifier             = Potential-shift-Verlet
+rvdw                     = 4.0               ; Large cutoff for VdW interactions
+table-extension          = 1                 ; Extension of the potential lookup tables
+
+; OPTIONS FOR WEAK COUPLING ALGORITHMS
+Tcoupl                   = v-rescale         ; Temperature coupling
+tc-grps                  = System            ; Large systems require more groups to prevent instabilities
+tau_t                    = 0.05              ; Time constant (ps)
+ref_t                    = 35.00             ; Reduced temperature value! 
+Pcoupl                   = no                ; Pressure coupling
+
+; BOND CONSTRAINING
+constraints              = all-bonds         ; Bond constraining highly recommended!
+constraint-algorithm     = LINCS
+
+; GENERATE VELOCITIES FOR STARTUP RUN
+gen_vel                  = yes
+gen_temp                 = 40.0             ; Reduced temperature value! 
+gen_seed                 = -1

@@ -6,4 +6,5 @@ GoCa.egg-info/
 __pycache__
 .vscode
 nbconvert
+.ipynb_checkpoints
 GoCa

@@ -1,0 +1,54 @@
+-I: Adding /home/t38guest/amber18/dat/leap/prep to search path.
+-I: Adding /home/t38guest/amber18/dat/leap/lib to search path.
+-I: Adding /home/t38guest/amber18/dat/leap/parm to search path.
+-I: Adding /home/t38guest/amber18/dat/leap/cmd to search path.
+-f: Source -.
+
+Welcome to LEaP!
+(no leaprc in search path)
+Sourcing: /home/t38guest/amber18/dat/leap/cmd/leaprc
+----- Source: /home/t38guest/amber18/dat/leap/cmd/leaprc.protein.ff14SB
+----- Source of /home/t38guest/amber18/dat/leap/cmd/leaprc.protein.ff14SB done
+Log file: ./leap.log
+Loading parameters: /home/t38guest/amber18/dat/leap/parm/parm10.dat
+Reading title:
+PARM99 + frcmod.ff99SB + frcmod.parmbsc0 + OL3 for RNA
+Loading parameters: /home/t38guest/amber18/dat/leap/parm/frcmod.ff14SB
+Reading force field modification type file (frcmod)
+Reading title:
+ff14SB protein backbone and sidechain parameters
+Loading library: /home/t38guest/amber18/dat/leap/lib/amino12.lib
+Loading library: /home/t38guest/amber18/dat/leap/lib/aminoct12.lib
+Loading library: /home/t38guest/amber18/dat/leap/lib/aminont12.lib
+Loading PDB file: ./output/protein-h.pdb.temp
+ (starting new molecule for chain B)
+ (starting new molecule for chain C)
+  Added missing heavy atom: .R<CTHR 134>.A<OXT 15>
+  Added missing heavy atom: .R<CTHR 266>.A<OXT 15>
+  Added missing heavy atom: .R<CTHR 398>.A<OXT 15>
+  total atoms in file: 2916
+  Leap added 3000 missing atoms according to residue templates:
+       3 Heavy
+       2997 H / lone pairs
+Writing pdb file: output/protein-h.pdb
+
+/home/t38guest/amber18/bin/teLeap: Warning!
+ Converting N-terminal residue name to PDB format: NSER -> SER
+
+/home/t38guest/amber18/bin/teLeap: Warning!
+ Converting C-terminal residue name to PDB format: CTHR -> THR
+
+/home/t38guest/amber18/bin/teLeap: Warning!
+ Converting N-terminal residue name to PDB format: NSER -> SER
+
+/home/t38guest/amber18/bin/teLeap: Warning!
+ Converting C-terminal residue name to PDB format: CTHR -> THR
+
+/home/t38guest/amber18/bin/teLeap: Warning!
+ Converting N-terminal residue name to PDB format: NSER -> SER
+
+/home/t38guest/amber18/bin/teLeap: Warning!
+ Converting C-terminal residue name to PDB format: CTHR -> THR
+	Quit
+
+Exiting LEaP: Errors = 0; Warnings = 6; Notes = 0.
