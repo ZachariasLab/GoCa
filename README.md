@@ -5,7 +5,7 @@ The GoCa program can also be used via the [luiswalter.dev/GoCa](https://luiswalt
 ### Installation
 We use Make to build the binary.
 ```bash
-git clone git@github.com:daandtu/GoCa.git
+git clone git@github.com:ZachariasLab/GoCa.git
 cd GoCa
 git submodule init # Fetch dependencies
 git submodule update
