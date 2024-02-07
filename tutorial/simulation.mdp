@@ -1,5 +1,5 @@
 dt                       = 0.004             ; Timestep in ps
-nsteps                   = 3000000           ; Number of simulation steps
+nsteps                   = 2000000           ; Number of simulation steps
 
 ; OUTPUT CONTROL OPTIONS
 nstenergy                = 100
