@@ -1,6 +1,6 @@
 # GoCa
 **Generate structure-based coarse-grained protein models for molecular dynamics simulations!**  
-The GoCa program can also be used via the [luiswalter.dev/GoCa](https://luiswalter.dev/GoCa/) webserver.  
+The GoCa program can also be used via the [goca.t38webservices.nat.tum.de](https://goca.t38webservices.nat.tum.de/) webserver.  
 
 ### Installation
 We use Make to build the binary.
