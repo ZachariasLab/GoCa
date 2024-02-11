@@ -8,3 +8,4 @@ __pycache__
 nbconvert
 .ipynb_checkpoints
 GoCa
+tutorial/output
