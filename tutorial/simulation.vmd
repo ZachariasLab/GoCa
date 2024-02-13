@@ -1,0 +1,24 @@
+#!/usr/local/bin/vmd
+
+# VMD version: 1.9.4a55
+mol new output/start.pdb type pdb first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
+mol addfile output/simulationNoPBC.xtc type xtc first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
+
+mol delrep 0 top
+mol representation VDW 1.000000 12.000000
+mol color Chain
+mol selection {all}
+mol material Opaque
+mol addrep top
+mol selupdate 0 top 0
+mol colupdate 0 top 0
+
+mol representation DynamicBonds 4.100000 0.300000 12.000000
+mol color Chain
+mol selection {all}
+mol material Opaque
+mol addrep top
+mol selupdate 1 top 0
+mol colupdate 1 top 0
+
+pbc box
